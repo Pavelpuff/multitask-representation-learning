@@ -46,7 +46,7 @@ The shared representation is routed to parallel MLPs:
 ### 3.3 Joint Objective Optimization
 The network minimizes a weighted joint loss:
 
-$$\mathcal{L}_{total} = \text{NLLLoss}(y_{cls}, \hat{y}_{cls}) + \lambda \cdot \text{SmoothL\_{1}Loss}(y_{reg}, \hat{y}_{reg})$$
+$$ \mathcal{L}_{total} = \text{NLLLoss}(y_{cls}, \hat{y}_{cls}) + \lambda \cdot \text{SmoothL}_1\text{Loss}(y_{reg}, \hat{y}_{reg}) $$
 
 ## 4. Label-Preserving Joint Augmentation Strategy
 Standard geometric augmentations corrupt ground-truth data in orientation-sensitive regression tasks (e.g., rotating a "Triangle Up" trivially mutates it into a "Triangle Right"). To maintain strict label integrity, a custom synchronized `GSNDataset` loader was implemented:
