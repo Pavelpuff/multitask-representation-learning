@@ -1,13 +1,12 @@
-import os
 import argparse
-import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
-import wandb
 
+import wandb
 from src.data.loader import GSNDataset
 from src.models.networks import MultitaskModel
 from src.utils.seed import set_seed
@@ -36,7 +35,7 @@ class EarlyStopping:
         self.patience = patience
         self.min_delta = min_delta
         self.counter = 0
-        self.best_loss = float('inf')
+        self.best_loss = float("inf")
         self.early_stop = False
 
     def __call__(self, val_loss: float, model: nn.Module, path: str = "best_model.pth") -> None:
@@ -51,14 +50,14 @@ class EarlyStopping:
 
 
 def train_epoch(
-        model: nn.Module,
-        loader: DataLoader,
-        optimizer: optim.Optimizer,
-        criterion_cls: nn.Module,
-        criterion_reg: nn.Module,
-        lambda_cls: float,
-        lambda_cnt: float,
-        device: torch.device
+    model: nn.Module,
+    loader: DataLoader,
+    optimizer: optim.Optimizer,
+    criterion_cls: nn.Module,
+    criterion_reg: nn.Module,
+    lambda_cls: float,
+    lambda_cnt: float,
+    device: torch.device,
 ) -> float:
     model.train()
     running_loss = 0.0
@@ -77,24 +76,26 @@ def train_epoch(
         optimizer.step()
 
         running_loss += loss.item()
-        wandb.log({
-            "batch/train_loss": loss.item(),
-            "batch/cls_loss": loss_cls.item(),
-            "batch/reg_loss": loss_reg.item()
-        })
+        wandb.log(
+            {
+                "batch/train_loss": loss.item(),
+                "batch/cls_loss": loss_cls.item(),
+                "batch/reg_loss": loss_reg.item(),
+            }
+        )
 
     return running_loss / len(loader)
 
 
 @torch.no_grad()
 def validate_epoch(
-        model: nn.Module,
-        loader: DataLoader,
-        criterion_cls: nn.Module,
-        criterion_reg: nn.Module,
-        lambda_cls: float,
-        lambda_cnt: float,
-        device: torch.device
+    model: nn.Module,
+    loader: DataLoader,
+    criterion_cls: nn.Module,
+    criterion_reg: nn.Module,
+    lambda_cls: float,
+    lambda_cnt: float,
+    device: torch.device,
 ) -> tuple[float, float]:
     model.eval()
     val_loss = 0.0
@@ -133,24 +134,35 @@ def main(args: argparse.Namespace) -> None:
     print(f"[*] Using hardware accelerator: {device}")
 
     import torchvision.transforms as transforms
+
     transform = transforms.Compose([transforms.ToTensor()])
     config_to_id = get_config_mapping()
 
     full_train_dataset = GSNDataset(
-        csv_file='data/labels.csv', root_dir='data/',
-        config_to_id=config_to_id, transform=transform, is_train=True
+        csv_file="data/labels.csv",
+        root_dir="data/",
+        config_to_id=config_to_id,
+        transform=transform,
+        is_train=True,
     )
     full_val_dataset = GSNDataset(
-        csv_file='data/labels.csv', root_dir='data/',
-        config_to_id=config_to_id, transform=transform, is_train=False
+        csv_file="data/labels.csv",
+        root_dir="data/",
+        config_to_id=config_to_id,
+        transform=transform,
+        is_train=False,
     )
 
     indices = list(range(10000))
     train_dataset = Subset(full_train_dataset, indices[:9000])
     val_dataset = Subset(full_val_dataset, indices[9000:])
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=args.val_batch_size, shuffle=False, num_workers=0)
+    train_loader = DataLoader(
+        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0
+    )
+    val_loader = DataLoader(
+        val_dataset, batch_size=args.val_batch_size, shuffle=False, num_workers=0
+    )
 
     model = MultitaskModel(dropout_rate=0.4).to(device)
     criterion_cls = nn.NLLLoss()
@@ -158,27 +170,44 @@ def main(args: argparse.Namespace) -> None:
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
     early_stopping = EarlyStopping(patience=args.patience)
 
-    print(f"[*] Starting training loop. Lambda CLS: {args.lambda_cls}, Lambda CNT: {args.lambda_cnt}")
+    print(
+        f"[*] Starting training loop. Lambda CLS: {args.lambda_cls}, Lambda CNT: {args.lambda_cnt}"
+    )
 
     for epoch in range(1, args.epochs + 1):
         train_loss = train_epoch(
-            model, train_loader, optimizer, criterion_cls, criterion_reg,
-            args.lambda_cls, args.lambda_cnt, device
+            model,
+            train_loader,
+            optimizer,
+            criterion_cls,
+            criterion_reg,
+            args.lambda_cls,
+            args.lambda_cnt,
+            device,
         )
         val_loss, val_acc = validate_epoch(
-            model, val_loader, criterion_cls, criterion_reg,
-            args.lambda_cls, args.lambda_cnt, device
+            model,
+            val_loader,
+            criterion_cls,
+            criterion_reg,
+            args.lambda_cls,
+            args.lambda_cnt,
+            device,
         )
 
-        wandb.log({
-            "epoch": epoch,
-            "epoch/train_loss": train_loss,
-            "epoch/val_loss": val_loss,
-            "epoch/val_acc": val_acc
-        })
+        wandb.log(
+            {
+                "epoch": epoch,
+                "epoch/train_loss": train_loss,
+                "epoch/val_loss": val_loss,
+                "epoch/val_acc": val_acc,
+            }
+        )
 
         print(
-            f"Epoch {epoch:03d}/{args.epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.2f}%")
+            f"Epoch {epoch:03d}/{args.epochs} | Train Loss: {train_loss:.4f} | "
+            f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.2f}%"
+        )
 
         early_stopping(val_loss, model)
         if early_stopping.early_stop:

@@ -15,23 +15,22 @@ class MultitaskModel(nn.Module):
 
         # Fixed CNN Backbone
         self.backbone = nn.Sequential(
-            nn.Conv2d(1, 8, 3, stride=1, padding=1), nn.ReLU(),
-            nn.Conv2d(8, 16, 3, stride=1, padding=1), nn.ReLU(),
-            nn.Conv2d(16, 32, 3, stride=1, padding=1), nn.ReLU(),
-            nn.Conv2d(32, 64, 3, stride=1, padding=1), nn.ReLU(),
+            nn.Conv2d(1, 8, 3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(8, 16, 3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(16, 32, 3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 3, stride=1, padding=1),
+            nn.ReLU(),
             nn.Flatten(start_dim=1),
-            nn.Linear(64 * 28 * 28, 256), nn.ReLU()
+            nn.Linear(64 * 28 * 28, 256),
+            nn.ReLU(),
         )
 
-        self.head_cls = nn.Sequential(
-            nn.Dropout(p=dropout_rate),
-            nn.Linear(256, 135)
-        )
+        self.head_cls = nn.Sequential(nn.Dropout(p=dropout_rate), nn.Linear(256, 135))
 
-        self.head_cnt = nn.Sequential(
-            nn.Dropout(p=dropout_rate),
-            nn.Linear(256, 6)
-        )
+        self.head_cnt = nn.Sequential(nn.Dropout(p=dropout_rate), nn.Linear(256, 6))
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         features = self.backbone(x)

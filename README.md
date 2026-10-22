@@ -3,8 +3,11 @@
 ![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.14+-ee4c2c.svg)
 ![Weights & Biases](https://img.shields.io/badge/Tracked_by-W&B-orange.svg)
+![Hardware](https://img.shields.io/badge/Hardware-Apple_Silicon_(MPS)-lightgrey.svg)
+![uv](https://img.shields.io/badge/uv-fast_package_manager-purple)
 
 ## 1. Abstract & Objective
+
 This project implements a Multi-Task Learning (MTL) architecture designed to resolve complex geometric spatial occlusion challenges. Given a single 28x28 grayscale input image containing multiple overlapping shapes, the network is trained to simultaneously solve two tasks:
 1. **Classification:** Identify the exact global configuration of geometric shapes out of 135 possible classes.
 2. **Regression:** Predict the precise count of 6 distinct shape categories (Square, Circle, and 4 rotational orientations of Triangles).
@@ -33,20 +36,20 @@ The system employs a **Shared Backbone with Task-Specific Heads** approach, opti
 
 ### 3.1 Feature Extractor
 A deterministic 4-block Convolutional Neural Network (CNN) extracts spatial hierarchies.
-* **Blocks:** 1 -> 8 -> 16 -> 32 -> 64 channels. 
-* Each layer utilizes 3x3 kernels with padding = 1, followed by non-linear ReLU activations.
-* The output is flattened into a 256-dimensional dense latent vector.
+- **Blocks:** 1 -> 8 -> 16 -> 32 -> 64 channels. 
+- Each layer utilizes 3x3 kernels with padding = 1, followed by non-linear ReLU activations.
+- The output is flattened into a 256-dimensional dense latent vector.
 
 ### 3.2 Task-Specific Heads
 The shared representation is routed to parallel MLPs:
-* **head_cls:** Linear mapping (256 -> 135) outputting Log-Softmax probabilities for NLLLoss.
-* **head_cnt:** Linear mapping (256 -> 6) outputting continuous values for SmoothL1Loss.
-* **Regularization:** Both heads utilize a strict Dropout rate of p=0.4 (empirically increased from 0.25 to combat early representation collapse).
+- **head_cls:** Linear mapping (256 -> 135) outputting Log-Softmax probabilities for NLLLoss.
+- **head_cnt:** Linear mapping (256 -> 6) outputting continuous values for SmoothL1Loss.
+- **Regularization:** Both heads utilize a strict Dropout rate of p=0.4 (empirically increased from 0.25 to combat early representation collapse).
 
 ### 3.3 Joint Objective Optimization
 The network minimizes a weighted joint loss:
 
-$$ \mathcal{L}_{total} = \text{NLLLoss}(y_{cls}, \hat{y}_{cls}) + \lambda \cdot \text{SmoothL}_1\text{Loss}(y_{reg}, \hat{y}_{reg}) $$
+$$\mathcal{L}_{total} = \text{NLLLoss}(y_{cls}, \hat{y}_{cls}) + \lambda \cdot \text{SmoothL}_1\text{Loss}(y_{reg}, \hat{y}_{reg})$$
 
 ## 4. Label-Preserving Joint Augmentation Strategy
 Standard geometric augmentations corrupt ground-truth data in orientation-sensitive regression tasks (e.g., rotating a "Triangle Up" trivially mutates it into a "Triangle Right"). To maintain strict label integrity, a custom synchronized `GSNDataset` loader was implemented:
@@ -62,21 +65,27 @@ Three isolated experiments were conducted over 100 epochs using Early Stopping. 
 
 ![W&B Validation Metrics](assets/wandb_val.png)
 
-* **Experiment 1 (Classification Only, λ=0.0):** Model rapidly overfits to overlapping pixel clusters.
-* **Experiment 2 (Regression Only, λ=1.0, cls=0.0):** Network converges well on counting but ignores global configurations.
-* **Experiment 3 (Multitask Target, λ=2.0):** The regression error actively penalizes poor spatial feature extraction, leading to the highest classification accuracy and lowest validation loss.
+- **Experiment 1 (Classification Only, λ=0.0):** Model rapidly overfits to overlapping pixel clusters.
+- **Experiment 2 (Regression Only, λ=1.0, cls=0.0):** Network converges well on counting but ignores global configurations.
+- **Experiment 3 (Multitask Target, λ=2.0):** The regression error actively penalizes poor spatial feature extraction, leading to the highest classification accuracy and lowest validation loss.
 
 ## 6. Reproducibility & Deployment
-This project uses `uv` for reproducible environment management and is compiled for Metal Performance Shaders (MPS).
+This project uses `uv` for reproducible environment management and includes a `Makefile` for automated setup and execution.
 
 ```bash
 # Clone and sync environment
-git clone [https://github.com/Pavelpuff/multitask-representation-learning.git](https://github.com/Pavelpuff/multitask-representation-learning.git)
+git clone https://github.com/Pavelpuff/multitask-representation-learning.git
 cd multitask-representation-learning
-uv sync
+make setup
 
 # Automatically fetch and extract GSN data
 make download-data
 
-# Execute target multitask pipeline
-uv run python -m src.train --lambda_cnt 2.0 --lambda_cls 1.0
+# Run experiments from Section 5:
+make train-cls  # Run Exp 1 (Classification Only)
+make train-reg  # Run Exp 2 (Regression Only)
+make train-mtl  # Run Exp 3 (Multitask Target - Best model)
+
+# Or run all three sequentially
+make train-all
+```
